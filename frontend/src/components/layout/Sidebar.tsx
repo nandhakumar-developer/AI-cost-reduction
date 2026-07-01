@@ -35,8 +35,8 @@ export function Sidebar() {
             <Zap className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-black text-[var(--primary)] leading-tight">AI Context</h1>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--secondary)]">Optimizer</p>
+            <h1 className="text-sm font-black text-[var(--primary)] leading-tight">AI Context Optimizer</h1>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--secondary)] mt-0.5">Pro Plan</p>
           </div>
         </div>
       </div>

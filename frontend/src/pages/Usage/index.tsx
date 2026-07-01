@@ -1,24 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { RefreshCcw, FileText, Zap, Clock, TrendingUp } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { BarChart3, TrendingUp, Clock, Zap } from 'lucide-react';
 import { usageService } from '../../services/usage.service';
-import { StatCard } from '../../components/ui/Card';
 import { ProgressBar } from '../../components/ui/ProgressBar';
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  show: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08 } }),
-};
-
-const DAILY_BREAKDOWN = [
-  { day: 'Mon', value: 8 },
-  { day: 'Tue', value: 15 },
-  { day: 'Wed', value: 12 },
-  { day: 'Thu', value: 22 },
-  { day: 'Fri', value: 18 },
-  { day: 'Sat', value: 5 },
-  { day: 'Sun', value: 12 },
-];
 
 export default function UsagePage() {
   const { data: stats, isLoading } = useQuery({
@@ -26,82 +10,101 @@ export default function UsagePage() {
     queryFn: () => usageService.getStats(),
   });
 
-  const maxVal = Math.max(...DAILY_BREAKDOWN.map((d) => d.value));
+  const usagePercent = stats ? Math.round((stats.usedToday / stats.dailyLimit) * 100) : 0;
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-        <h2 className="text-2xl font-black text-[var(--on-background)]">Usage & Analytics</h2>
-        <p className="text-sm text-[var(--secondary)] mt-1">Track your conversion activity and daily limits.</p>
-      </motion.div>
+      <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <h2 className="text-3xl font-black text-[var(--on-background)]">Usage & Analytics</h2>
+        <p className="text-sm text-[var(--secondary)] mt-1">Track your conversion usage and session activity.</p>
+      </motion.section>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Grid */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Conversions', value: isLoading ? '—' : stats?.totalConversions?.toLocaleString() ?? '0', icon: <RefreshCcw className="w-5 h-5" />, delay: 0 },
-          { label: 'Files Processed', value: isLoading ? '—' : stats?.filesProcessed?.toLocaleString() ?? '0', icon: <FileText className="w-5 h-5" />, delay: 1 },
-          { label: 'Used Today', value: isLoading ? '—' : `${stats?.usedToday ?? 0} / ${stats?.dailyLimit ?? 50}`, icon: <Zap className="w-5 h-5" />, delay: 2 },
-          { label: 'Last Activity', value: isLoading ? '—' : (stats?.lastActivity ? new Date(stats.lastActivity).toLocaleDateString() : 'Never'), icon: <Clock className="w-5 h-5" />, delay: 3 },
+          {
+            label: 'Total Conversions',
+            value: isLoading ? '—' : stats?.totalConversions.toLocaleString() ?? '—',
+            icon: <TrendingUp className="w-5 h-5" />,
+            delay: 0,
+          },
+          {
+            label: 'Files Processed',
+            value: isLoading ? '—' : stats?.filesProcessed.toLocaleString() ?? '—',
+            icon: <BarChart3 className="w-5 h-5" />,
+            delay: 1,
+          },
+          {
+            label: 'Used Today',
+            value: isLoading ? '—' : `${stats?.usedToday ?? 0} / ${stats?.dailyLimit ?? 50}`,
+            icon: <Zap className="w-5 h-5" />,
+            delay: 2,
+          },
+          {
+            label: 'Last Activity',
+            value: isLoading ? '—' : stats?.lastActivity
+              ? new Date(stats.lastActivity).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : 'None',
+            icon: <Clock className="w-5 h-5" />,
+            delay: 3,
+          },
         ].map(({ label, value, icon, delay }) => (
-          <motion.div key={label} custom={delay} initial="hidden" animate="show" variants={fadeUp}>
-            <StatCard label={label} value={String(value)} icon={icon} />
+          <motion.div
+            key={label}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: delay * 0.08 }}
+            className="glass-card rounded-xl p-5 border border-[var(--outline-variant)] shadow-sm"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[var(--primary-fixed)] text-[var(--primary)]">
+                {icon}
+              </div>
+            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--secondary)]">{label}</p>
+            <p className="text-2xl font-black mt-1 text-[var(--on-surface)] tabular-nums">{value}</p>
           </motion.div>
         ))}
-      </div>
+      </section>
 
-      {/* Daily Limit Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        className="bg-[var(--surface-container-lowest)] rounded-xl p-6 border border-[var(--outline-variant)] shadow-sm"
+      {/* Daily Usage Bar */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="glass-card rounded-xl p-6 border border-[var(--outline-variant)] shadow-sm"
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex justify-between items-center mb-4">
           <div>
-            <h3 className="font-bold text-[var(--on-surface)]">Daily Conversion Limit</h3>
-            <p className="text-sm text-[var(--secondary)] mt-0.5">
-              {stats?.remainingToday ?? '—'} conversions remaining today
-            </p>
+            <h3 className="font-bold text-[var(--on-surface)]">Daily Limit Usage</h3>
+            <p className="text-sm text-[var(--secondary)] mt-0.5">Resets every 24 hours</p>
           </div>
-          <div className="text-right">
-            <p className="text-3xl font-black text-[var(--primary)]">{stats?.usedToday ?? 0}</p>
-            <p className="text-xs text-[var(--secondary)]">of {stats?.dailyLimit ?? 50} used</p>
-          </div>
+          <span className="text-sm font-bold text-[var(--primary)] bg-[var(--primary-fixed)] px-3 py-1 rounded-full">
+            {usagePercent}% used
+          </span>
         </div>
-        <ProgressBar
-          value={stats?.usedToday ?? 0}
-          max={stats?.dailyLimit ?? 50}
-          label="Daily usage"
-        />
-        <p className="text-xs text-[var(--secondary)] mt-3">
-          Limit resets at midnight UTC. Need more? Upgrade your plan.
-        </p>
-      </motion.div>
+        <ProgressBar value={stats?.usedToday ?? 0} max={stats?.dailyLimit ?? 50} showLabel className="h-3" />
+        <div className="flex justify-between mt-2 text-xs text-[var(--secondary)]">
+          <span>{stats?.usedToday ?? 0} used</span>
+          <span>{stats?.remainingToday ?? 50} remaining</span>
+        </div>
+      </motion.section>
 
-      {/* Weekly Chart */}
+      {/* Info Card */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-        className="bg-[var(--surface-container-lowest)] rounded-xl p-6 border border-[var(--outline-variant)] shadow-sm"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+        className="rounded-xl p-6 bg-[var(--primary)] text-[var(--on-primary)] shadow-lg"
       >
-        <div className="flex items-center gap-2 mb-6">
-          <TrendingUp className="w-5 h-5 text-[var(--primary)]" />
-          <h3 className="font-bold text-[var(--on-surface)]">Weekly Activity</h3>
-        </div>
-        <div className="flex items-end gap-3 h-40">
-          {DAILY_BREAKDOWN.map(({ day, value }) => (
-            <div key={day} className="flex-1 flex flex-col items-center gap-2">
-              <span className="text-xs font-bold text-[var(--secondary)]">{value}</span>
-              <div className="w-full relative bg-[var(--surface-container)] rounded-lg overflow-hidden" style={{ height: '100px' }}>
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${(value / maxVal) * 100}%` }}
-                  transition={{ delay: 0.5, duration: 0.6, ease: 'easeOut' }}
-                  className="absolute bottom-0 w-full bg-[var(--primary)] rounded-lg opacity-80"
-                />
-              </div>
-              <span className="text-[11px] text-[var(--secondary)]">{day}</span>
-            </div>
-          ))}
-        </div>
+        <h3 className="text-xl font-black mb-2">Need more conversions?</h3>
+        <p className="text-sm opacity-90 mb-4">
+          Upgrade to Pro for unlimited conversions, priority processing, and API access.
+        </p>
+        <button className="px-6 py-2.5 bg-white text-[var(--primary)] rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
+          Upgrade to Pro
+        </button>
       </motion.div>
     </div>
   );

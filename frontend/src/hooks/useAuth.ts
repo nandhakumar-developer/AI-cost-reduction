@@ -8,16 +8,33 @@ export function useAuth() {
   const { user, session, isAuthenticated, setAuth, logout: storeLogout } = useAuthStore();
   const navigate = useNavigate();
 
-  const loginWithGoogle = useCallback(async () => {
-    try {
-      const { user, session } = await authService.googleLogin();
-      setAuth(user, session);
-      toast.success(`Welcome back, ${user.name.split(' ')[0]}!`);
-      navigate('/dashboard');
-    } catch {
-      toast.error('Login failed. Please try again.');
-    }
-  }, [setAuth, navigate]);
+  const loginWithGoogle = useCallback(
+    async (credential: string) => {
+      try {
+        const { user, session } = await authService.googleLogin(credential);
+        setAuth(user, session);
+        toast.success(`Welcome, ${user.name.split(' ')[0]}!`);
+        navigate('/dashboard');
+      } catch {
+        toast.error('Login failed. Please try again.');
+      }
+    },
+    [setAuth, navigate]
+  );
+
+  const loginWithDev = useCallback(
+    async (email?: string) => {
+      try {
+        const { user, session } = await authService.devLogin(email);
+        setAuth(user, session);
+        toast.success(`Welcome, ${user.name.split(' ')[0]}! (Dev mode)`);
+        navigate('/dashboard');
+      } catch {
+        toast.error('Dev login failed.');
+      }
+    },
+    [setAuth, navigate]
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -39,5 +56,14 @@ export function useAuth() {
     return Math.max(0, Math.floor((session.expiresAt - Date.now()) / 1000));
   };
 
-  return { user, session, isAuthenticated, loginWithGoogle, logout, isSessionValid, sessionSecondsRemaining };
+  return {
+    user,
+    session,
+    isAuthenticated,
+    loginWithGoogle,
+    loginWithDev,
+    logout,
+    isSessionValid,
+    sessionSecondsRemaining,
+  };
 }

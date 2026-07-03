@@ -1,73 +1,89 @@
-# React + TypeScript + Vite
+# MarkItDown SaaS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Production-ready SaaS application that converts uploaded files into Markdown using Microsoft's MarkItDown library.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Google OAuth authentication (dev mode available)
+- Single active session per user
+- File conversion via MarkItDown (PDF, DOCX, PPTX, XLSX, images, and more)
+- Free: 8MB upload/quota, 42-hour reset
+- Pro: 15MB upload, 10 conversion cycles, manual subscription approval
+- Conversion history with search and pagination
+- Admin panel for user and subscription management
+- Dark/light theme, responsive UI
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** React, TypeScript, TailwindCSS, Zustand, Framer Motion, React Router
+- **Backend:** Node.js, Express, TypeScript, Prisma
+- **Database:** SQLite (dev) / PostgreSQL (production)
+- **Conversion:** Microsoft MarkItDown (Python)
 
-## Expanding the ESLint configuration
+## Quick Start
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js 20+
+- pnpm (`npm install -g pnpm`)
+- Python 3.10+ with `pip install markitdown`
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Install
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm install
+cd backend
+cp .env.example .env
+pnpm db:push
+pnpm db:seed
+cd ..
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Run Development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+pnpm dev
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Frontend: http://localhost:5173
+- Backend: http://localhost:4000
+
+### Dev Login
+
+With `ALLOW_DEV_AUTH=true` in `backend/.env`, use **Continue with Google (Dev Mode)** on the login page.
+
+For admin access, log in with email `admin@markitdown.local` (modify dev login or use Google OAuth with that account).
+
+### Google OAuth (Production)
+
+1. Create OAuth credentials in Google Cloud Console
+2. Set `GOOGLE_CLIENT_ID` in `backend/.env` and `VITE_GOOGLE_CLIENT_ID` in `frontend/.env`
+3. Set `ALLOW_DEV_AUTH=false`
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /auth/google | Google OAuth login |
+| POST | /auth/logout | Logout |
+| GET | /auth/me | Current user + usage |
+| POST | /convert | Upload & convert files |
+| GET | /history | Conversion history |
+| GET | /subscription | Subscription info |
+| POST | /subscription/request | Submit payment |
+| GET | /admin/dashboard | Admin stats |
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+## Project Structure
+
+```
+├── backend/          Express API + Prisma
+├── frontend/         React SPA
+├── docker-compose.yml
+└── pnpm-workspace.yaml
 ```

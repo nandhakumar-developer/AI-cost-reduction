@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Zap, CloudUpload, Terminal, FileCode2,
-  Bolt, ShieldCheck, ArrowRight, Github, Twitter
+  Bolt, ShieldCheck, ArrowRight
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/common/Button';

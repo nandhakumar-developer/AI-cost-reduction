@@ -1,51 +1,14 @@
-import type { ConversionResult } from '../types';
+import { api, getErrorMessage } from './api';
+import type { ConversionResult, UsageStats, RecentConversion, PaginatedHistory } from '../types';
 
-const SUPPORTED_TYPES = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'image/png',
-  'image/jpeg',
-];
-
-const MOCK_MARKDOWN = (filename: string) => `# ${filename.replace(/\.[^.]+$/, '')}
-
-## Overview
-
-This document has been converted to AI-ready Markdown using **Microsoft MarkItDown**.
-
-## Key Sections
-
-### Introduction
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-
-### Data Table
-
-| Column A | Column B | Column C |
-|----------|----------|----------|
-| Value 1  | Value 2  | Value 3  |
-| Data A   | Data B   | Data C   |
-
-### Summary
-
-- ✅ Document structure preserved
-- ✅ Tables converted to Markdown format
-- ✅ Headings retained
-- ✅ Ready for Claude, ChatGPT, Gemini
-
-\`\`\`python
-# Example code block preserved
-def process_data(items):
-    return [item.transform() for item in items]
-\`\`\`
-
-> **Note:** This Markdown is optimized for LLM context windows.
-`;
+const ACCEPTED_EXTENSIONS =
+  /\.(pdf|docx?|pptx?|xlsx?|csv|txt|rtf|png|jpe?g|webp|gif|bmp|tiff?|md|html?|zip)$/i;
 
 export const uploadService = {
-  validateFiles: (files: File[]): { valid: File[]; errors: string[] } => {
+  validateFiles: (
+    files: File[],
+    maxUploadBytes: number
+  ): { valid: File[]; errors: string[] } => {
     const valid: File[] = [];
     const errors: string[] = [];
     let totalSize = 0;
@@ -57,46 +20,97 @@ export const uploadService = {
 
     for (const file of files) {
       totalSize += file.size;
-      if (!SUPPORTED_TYPES.includes(file.type) && !file.name.match(/\.(pdf|docx|pptx|xlsx|png|jpg|jpeg)$/i)) {
+      if (!ACCEPTED_EXTENSIONS.test(file.name)) {
         errors.push(`"${file.name}" is not a supported file type.`);
         continue;
       }
       valid.push(file);
     }
 
-    if (totalSize > 30 * 1024 * 1024) {
-      errors.push('Total upload size exceeds 30MB limit.');
+    if (totalSize > maxUploadBytes) {
+      const mb = Math.round(maxUploadBytes / (1024 * 1024));
+      errors.push(`Total upload size exceeds ${mb}MB limit.`);
       return { valid: [], errors };
     }
 
     return { valid, errors };
   },
 
-  /** Phase 1: simulates upload + conversion with progress callbacks */
   convertFiles: async (
     files: File[],
-    onProgress: (id: string, status: ConversionResult['status']) => void
+    onProgress: (id: string, status: ConversionResult['status']) => void,
+    localIds: Map<string, string>
   ): Promise<ConversionResult[]> => {
-    const results: ConversionResult[] = files.map((f) => ({
-      id: `conv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      filename: f.name,
-      fileSize: f.size,
-      status: 'uploading' as const,
-    }));
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
 
-    for (const result of results) {
-      // Phase 1 mock — simulate pipeline
-      onProgress(result.id, 'uploading');
-      await new Promise((r) => setTimeout(r, 800 + Math.random() * 500));
+    files.forEach((file) => {
+      const id = localIds.get(file.name);
+      if (id) onProgress(id, 'uploading');
+    });
 
-      onProgress(result.id, 'processing');
-      await new Promise((r) => setTimeout(r, 1000 + Math.random() * 800));
+    try {
+      const { data } = await api.post<{
+        success: boolean;
+        data: { results: ConversionResult[] };
+      }>('/convert', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: () => {
+          files.forEach((file) => {
+            const id = localIds.get(file.name);
+            if (id) onProgress(id, 'processing');
+          });
+        },
+      });
 
-      result.status = 'completed';
-      result.markdown = MOCK_MARKDOWN(result.filename);
-      onProgress(result.id, 'completed');
+      const results = data.data.results;
+      results.forEach((result) => {
+        const localId = localIds.get(result.filename);
+        if (localId) onProgress(localId, result.status);
+      });
+
+      return results;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
     }
+  },
+};
 
-    return results;
+export const usageService = {
+  getStats: async (): Promise<UsageStats> => {
+    const { data } = await api.get<{ success: boolean; data: UsageStats }>('/history/stats');
+    return data.data;
+  },
+
+  getRecentConversions: async (): Promise<RecentConversion[]> => {
+    const { data } = await api.get<{ success: boolean; data: RecentConversion[] }>(
+      '/history/recent'
+    );
+    return data.data;
+  },
+
+  getHistory: async (params: {
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedHistory> => {
+    const { data } = await api.get<{ success: boolean; data: PaginatedHistory }>('/history', {
+      params,
+    });
+    return data.data;
+  },
+
+  deleteHistory: async (id: string): Promise<void> => {
+    await api.delete(`/history/${id}`);
+  },
+
+  downloadHistory: async (id: string, filename: string): Promise<void> => {
+    const response = await api.get(`/history/${id}/download`, { responseType: 'blob' });
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename.replace(/\.[^.]+$/, '') + '.md';
+    a.click();
+    URL.revokeObjectURL(url);
   },
 };

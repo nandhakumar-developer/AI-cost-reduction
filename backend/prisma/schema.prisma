@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  PRO
+  ADMIN
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+enum SubscriptionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ConversionStatus {
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id            String         @id @default(cuid())
+  googleId      String         @unique
+  email         String         @unique
+  name          String
+  avatar        String?
+  role          Role           @default(USER)
+  plan          Plan           @default(FREE)
+  sessionId     String?
+  banned        Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+  history       History[]
+  usage         Usage?
+  adminLogs     AdminLog[]     @relation("AdminLogs")
+}
+
+model Subscription {
+  id            String             @id @default(cuid())
+  userId        String
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactionId String
+  screenshot    String?
+  status        SubscriptionStatus @default(PENDING)
+  approvedBy    String?
+  approvedAt    DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model History {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename        String
+  filesize        Int
+  markdown        String
+  processingTime  Int
+  status          ConversionStatus @default(COMPLETED)
+  createdAt       DateTime         @default(now())
+}
+
+model Usage {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usedBytes  Int      @default(0)
+  resetAt    DateTime
+  cycleCount Int      @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+model AdminLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  admin     User     @relation("AdminLogs", fields: [adminId], references: [id])
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}

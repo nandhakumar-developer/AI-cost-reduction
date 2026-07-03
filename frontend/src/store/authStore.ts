@@ -29,7 +29,7 @@ export const useAuthStore = create<AuthStore>()(
       setTheme: (theme) => set({ theme }),
     }),
     {
-      name: 'ai-context-auth',
+      name: 'markitdown-auth',
       partialize: (state) => ({
         user: state.user,
         session: state.session,

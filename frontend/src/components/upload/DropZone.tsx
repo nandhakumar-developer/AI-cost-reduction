@@ -2,16 +2,19 @@ import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CloudUpload, FilePlus } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { formatBytes } from '../../utils/formatBytes';
 
-const ACCEPTED = '.pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg';
+const ACCEPTED =
+  '.pdf,.doc,.docx,.txt,.rtf,.ppt,.pptx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tiff,.tif,.md,.html,.htm,.zip';
 
 interface DropZoneProps {
   onFiles: (files: File[]) => void;
   disabled?: boolean;
   className?: string;
+  maxUploadBytes?: number;
 }
 
-export function DropZone({ onFiles, disabled, className }: DropZoneProps) {
+export function DropZone({ onFiles, disabled, className, maxUploadBytes = 8 * 1024 * 1024 }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,34 +52,17 @@ export function DropZone({ onFiles, disabled, className }: DropZoneProps) {
         className
       )}
     >
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept={ACCEPTED}
-        onChange={handleChange}
-        className="hidden"
-        disabled={disabled}
-      />
+      <input ref={inputRef} type="file" multiple accept={ACCEPTED} onChange={handleChange} className="hidden" disabled={disabled} />
 
       <AnimatePresence mode="wait">
         {isDragging ? (
-          <motion.div
-            key="dragging"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            className="w-16 h-16 bg-[var(--primary)] rounded-2xl flex items-center justify-center shadow-lg animate-pulse-glow"
-          >
+          <motion.div key="dragging" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
+            className="w-16 h-16 bg-[var(--primary)] rounded-2xl flex items-center justify-center shadow-lg animate-pulse-glow">
             <FilePlus className="w-8 h-8 text-white" />
           </motion.div>
         ) : (
-          <motion.div
-            key="idle"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-16 h-16 bg-[var(--secondary-container)] rounded-2xl flex items-center justify-center"
-          >
+          <motion.div key="idle" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="w-16 h-16 bg-[var(--secondary-container)] rounded-2xl flex items-center justify-center">
             <CloudUpload className="w-8 h-8 text-[var(--primary)]" />
           </motion.div>
         )}
@@ -90,9 +76,9 @@ export function DropZone({ onFiles, disabled, className }: DropZoneProps) {
           or <span className="text-[var(--primary)] font-semibold">browse files</span>
         </p>
         <p className="text-[11px] text-[var(--secondary)] mt-3 font-medium">
-          PDF · DOCX · PPTX · XLSX · PNG · JPG · JPEG
+          PDF · DOCX · PPTX · XLSX · CSV · Images · HTML · MD
         </p>
-        <p className="text-[11px] text-[var(--secondary)]">Max 10 files · 30MB total</p>
+        <p className="text-[11px] text-[var(--secondary)]">Max 10 files · {formatBytes(maxUploadBytes)} total</p>
       </div>
     </motion.div>
   );

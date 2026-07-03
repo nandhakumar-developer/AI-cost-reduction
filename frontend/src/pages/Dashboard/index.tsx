@@ -6,12 +6,13 @@ import {
   Download, FileUp
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import { usageService } from '../../services/usage.service';
+import { usageService } from '../../services/upload.service';
 import { StatCard } from '../../components/ui/Card';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { StatusBadge } from '../../components/common/Badge';
 import { formatBytes } from '../../utils/formatBytes';
 import { useSession } from '../../hooks/useSession';
+import { useQuotaReset } from '../../hooks/useQuotaReset';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const { formattedTime } = useSession();
+  const { formattedReset } = useQuotaReset();
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['usage-stats'],
@@ -44,18 +46,23 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <motion.section
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         className="flex flex-col md:flex-row md:items-end justify-between gap-4"
       >
         <div>
-          <h2 className="text-3xl font-black text-[var(--on-background)]">{greeting()}, {firstName} 👋</h2>
-          <p className="text-sm text-[var(--secondary)] mt-1">Here's what's happening with your AI context today.</p>
+          <h2 className="text-3xl font-black text-[var(--on-background)]">{greeting()}, {firstName}</h2>
+          <p className="text-sm text-[var(--secondary)] mt-1">
+            Plan: <span className="font-semibold text-[var(--primary)]">{user?.plan ?? 'FREE'}</span>
+            {' · '}Quota resets in {formattedReset}
+          </p>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 rounded-xl border border-[var(--outline)] text-sm font-semibold text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-colors">
-            Export Report
+          <button
+            onClick={() => navigate('/dashboard/subscription')}
+            className="px-4 py-2 rounded-xl border border-[var(--outline)] text-sm font-semibold text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-colors"
+          >
+            Upgrade
           </button>
           <button
             onClick={() => navigate('/dashboard/convert')}
@@ -67,14 +74,13 @@ export default function DashboardPage() {
         </div>
       </motion.section>
 
-      {/* Stat Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: 'Conversions Today',
-            value: statsLoading ? '—' : stats?.usedToday ?? 0,
+            label: 'Total Conversions',
+            value: statsLoading ? '—' : String(stats?.totalConversions ?? 0),
             icon: <RefreshCcw className="w-5 h-5" />,
-            badge: '+12%',
+            badge: 'All time',
             delay: 0,
           },
           {
@@ -85,10 +91,10 @@ export default function DashboardPage() {
             delay: 1,
           },
           {
-            label: 'Remaining Today',
-            value: statsLoading ? '—' : stats?.remainingToday ?? 0,
+            label: 'Quota Remaining',
+            value: statsLoading ? '—' : formatBytes(stats?.remainingBytes ?? 0),
             icon: <Database className="w-5 h-5" />,
-            badge: `/ ${stats?.dailyLimit ?? 50}`,
+            badge: stats ? `/ ${formatBytes(stats.quotaBytes)}` : '',
             delay: 2,
           },
           {
@@ -102,10 +108,10 @@ export default function DashboardPage() {
         ].map(({ label, value, icon, badge, accent, delay }) => (
           <motion.div key={label} custom={delay} initial="hidden" animate="show" variants={fadeUp}>
             <StatCard label={label} value={String(value)} icon={icon} badge={badge} accent={accent}>
-              {label === 'Remaining Today' && stats && (
+              {label === 'Quota Remaining' && stats && (
                 <ProgressBar
-                  value={stats.usedToday}
-                  max={stats.dailyLimit}
+                  value={stats.usedBytes}
+                  max={stats.quotaBytes}
                   showLabel={false}
                   className="mt-2"
                 />
@@ -115,9 +121,7 @@ export default function DashboardPage() {
         ))}
       </section>
 
-      {/* Main Grid */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Conversions Table */}
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="lg:col-span-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] shadow-sm overflow-hidden"
@@ -125,7 +129,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--outline-variant)]">
             <h4 className="font-bold text-[var(--on-surface)]">Recent Conversions</h4>
             <button
-              onClick={() => navigate('/dashboard/convert')}
+              onClick={() => navigate('/dashboard/history')}
               className="text-sm text-[var(--primary)] font-semibold hover:underline"
             >
               View All
@@ -151,7 +155,7 @@ export default function DashboardPage() {
                       ))}
                     </tr>
                   ))
-                ) : recent?.map((r) => (
+                ) : recent?.length ? recent.map((r) => (
                   <tr key={r.id} className="hover:bg-[var(--surface-container-low)] transition-colors">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2.5">
@@ -165,47 +169,45 @@ export default function DashboardPage() {
                       <StatusBadge status={r.status} />
                     </td>
                     <td className="px-5 py-4">
-                      <button className="text-[var(--secondary)] hover:text-[var(--primary)] transition-colors">
+                      <button
+                        onClick={() => usageService.downloadHistory(r.id, r.filename)}
+                        className="text-[var(--secondary)] hover:text-[var(--primary)] transition-colors"
+                      >
                         <Download className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-8 text-center text-sm text-[var(--secondary)]">
+                      No conversions yet. Upload your first file!
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </motion.div>
 
-        {/* Side Panel */}
         <div className="flex flex-col gap-4">
-          {/* Quality donut */}
           <motion.div
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}
             className="glass-card rounded-xl p-5 border-l-4 border-[var(--primary)]"
           >
-            <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--secondary)] mb-4">AI Optimization Quality</p>
-            <div className="flex items-center gap-4">
-              <div className="relative w-20 h-20 flex-shrink-0">
-                <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
-                  <circle cx="40" cy="40" r="32" fill="none" stroke="var(--surface-container)" strokeWidth="8" />
-                  <circle
-                    cx="40" cy="40" r="32" fill="none"
-                    stroke="var(--primary)" strokeWidth="8"
-                    strokeDasharray={`${2 * Math.PI * 32}`}
-                    strokeDashoffset={`${2 * Math.PI * 32 * 0.1}`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-xl font-black text-[var(--on-surface)]">90</span>
-              </div>
-              <div>
-                <p className="font-bold text-[var(--on-surface)]">AI Optimized</p>
-                <p className="text-xs text-[var(--secondary)] mt-0.5">Average token reduction across all processed files.</p>
-              </div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--secondary)] mb-4">Rate Limit Status</p>
+            <div className="space-y-3">
+              <ProgressBar value={stats?.usedBytes ?? 0} max={stats?.quotaBytes ?? 1} showLabel />
+              <p className="text-xs text-[var(--secondary)]">
+                Next reset: <span className="font-semibold text-[var(--on-surface)]">{formattedReset}</span>
+              </p>
+              {stats?.plan === 'PRO' && stats.maxCycles && (
+                <p className="text-xs text-[var(--secondary)]">
+                  Cycles: {stats.cycleCount} / {stats.maxCycles}
+                </p>
+              )}
             </div>
           </motion.div>
 
-          {/* Promo card */}
           <motion.div
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}
             className="relative overflow-hidden rounded-xl h-52 shadow-lg group cursor-pointer"
@@ -214,17 +216,10 @@ export default function DashboardPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)] via-indigo-600 to-purple-700" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
             <div className="relative z-10 p-5 h-full flex flex-col justify-end">
-              <span className="inline-block bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest text-white mb-2">New Feature</span>
-              <h5 className="text-white font-bold text-base mb-1">Batch Processing</h5>
-              <p className="text-white/80 text-xs">Upload 10 files at once and get all Markdown instantly.</p>
+              <span className="inline-block bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest text-white mb-2">MarkItDown</span>
+              <h5 className="text-white font-bold text-base mb-1">Convert to Markdown</h5>
+              <p className="text-white/80 text-xs">Upload PDF, DOCX, PPTX, images and more.</p>
             </div>
-            <motion.div
-              className="absolute top-4 right-4 w-16 h-16 bg-white/10 rounded-2xl"
-              animate={{ rotate: [0, 10, -5, 0] }}
-              transition={{ duration: 4, repeat: Infinity }}
-            >
-              <div className="w-full h-full flex items-center justify-center text-2xl">⚡</div>
-            </motion.div>
           </motion.div>
         </div>
       </section>

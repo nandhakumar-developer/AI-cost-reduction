@@ -1,32 +1,38 @@
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, UploadCloud } from 'lucide-react';
 import { DropZone } from '../../components/upload/DropZone';
 import { FileList } from '../../components/upload/FileList';
 import { Button } from '../../components/common/Button';
 import { useConvert } from '../../hooks/useConvert';
+import { usageService } from '../../services/upload.service';
+import { formatBytes } from '../../utils/formatBytes';
 
 export default function ConvertPage() {
-  const { results, isConverting, convert, clearResults } = useConvert();
+  const { data: stats } = useQuery({
+    queryKey: ['usage-stats'],
+    queryFn: () => usageService.getStats(),
+  });
+
+  const maxUpload = stats?.maxUploadBytes ?? 8 * 1024 * 1024;
+  const { results, isConverting, convert, clearResults } = useConvert(maxUpload);
 
   const completedCount = results.filter((r) => r.status === 'completed').length;
   const hasResults = results.length > 0;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         <h2 className="text-2xl font-black text-[var(--on-background)]">Convert Files</h2>
         <p className="text-sm text-[var(--secondary)] mt-1">
-          Upload documents and convert them to AI-ready Markdown in seconds.
+          Upload documents and convert them to AI-ready Markdown. Max {formatBytes(maxUpload)} combined per upload.
         </p>
       </motion.div>
 
-      {/* Drop Zone */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <DropZone onFiles={convert} disabled={isConverting} />
+        <DropZone onFiles={convert} disabled={isConverting} maxUploadBytes={maxUpload} />
       </motion.div>
 
-      {/* Stats bar */}
       <AnimatePresence>
         {hasResults && (
           <motion.div
@@ -51,46 +57,30 @@ export default function ConvertPage() {
                 </span>
               )}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<Trash2 className="w-3.5 h-3.5" />}
-              onClick={clearResults}
-              disabled={isConverting}
-            >
+            <Button variant="ghost" size="sm" icon={<Trash2 className="w-3.5 h-3.5" />} onClick={clearResults} disabled={isConverting}>
               Clear All
             </Button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* File List */}
       <AnimatePresence>
         {hasResults && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <FileList results={results} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Empty state */}
       <AnimatePresence>
         {!hasResults && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-16 text-center"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-16 h-16 bg-[var(--secondary-container)] rounded-2xl flex items-center justify-center mb-4">
               <UploadCloud className="w-8 h-8 text-[var(--primary)]" />
             </div>
             <p className="font-semibold text-[var(--on-surface)]">No files yet</p>
             <p className="text-sm text-[var(--secondary)] mt-1 max-w-xs">
-              Drag and drop files above or click to browse. Supports PDF, DOCX, PPTX, XLSX, PNG, JPG.
+              Drag and drop files above or click to browse. Supports PDF, DOCX, PPTX, XLSX, images, and more.
             </p>
           </motion.div>
         )}

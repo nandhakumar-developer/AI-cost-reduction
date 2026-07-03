@@ -13,7 +13,7 @@ export function useConvert(maxUploadBytes = 8 * 1024 * 1024) {
         prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
       );
     },
-    []
+    [] 
   );
 
   const convert = useCallback(
